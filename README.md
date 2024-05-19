@@ -8,6 +8,7 @@ This repository contains the following files and folders:
 - `/batch_scripts`: a folder with the batch scripts used to run simulations on the HPC for different parameter settings
 - `/parameter_scripts`: a folder with R scripts containing the initial values and parameter settings used for different simulation runs
 - `/simulation_output`: a folder with .csv, .jpg, and .gif output from simulations
-- `simulation_run_overview.html`: a HTML file containing settings for all the runs
+- `simulation_run_overview_M1.txt`: a text file containing settings for all the model 1 runs 
+- `simulation_run_overview_M2.txt`: a text file containing settings for all the model 2 runs
 
 In order to run the simulations, this folder structure should be conserved. Run numbers indicate that changes have been made to initial conditions and/or parameters.
