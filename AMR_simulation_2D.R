@@ -1,6 +1,6 @@
 ### QBIO7004 project 2024: Simulation of AMR evolution in bacteria
 ### Model 2: Spatial changes in antibiotics concentration
-### By Alberte Thude (s4859822)
+### By Alberte Thude (s48598228)
 
 ################################################################################
 ### Initial document setup ----
@@ -31,7 +31,7 @@ con_factor <- 60/20
 t_max <- con_factor*1  # number of time steps to simulate
 
 # Loading initial values and parameters from helper script
-source(paste0("settings_2D_r", run, ".R"))
+source(paste0("parameter_scripts/settings_2D_r", run, ".R"))
 
 # Initializing population
 MIC_list <- numeric(ini$n_bac)
@@ -106,24 +106,8 @@ simulate_movement <- function(cell, bac_population) {
   # The number of cells already present in the attempted cell is calculated.
   n_cells_move <- bac_population %>% filter(bac_population$resistance_status != "dead" & bac_population$x == x_move & bac_population$y == y_move) %>% count()
   
-  n_cells_adjoining <- bac_population %>% 
-    filter(bac_population$resistance_status != "dead" & !is.na(bac_population$ID)) %>% 
-    group_by(x, y) %>% 
-    filter(x == x_move + 1 & y == y_move | 
-             x == x_move + 1 & y == y_move + 1| 
-             x == x_move + 1 & y == y_move - 1| 
-             x == x_move - 1 & y == y_move |
-             x == x_move - 1 & y == y_move + 1|
-             x == x_move - 1 & y == y_move - 1|
-             x == x_move & y == y_move + 1 |
-             x == x_move & y == y_move - 1 |
-             x == x_move & y == y_move) %>% 
-    count()
-  
-  
   # If there is space in the new cell, the bacterium moves to it.
-  movement_outcome <- ifelse(n_cells_move < ini$max_bac_cell &
-                               sum(n_cells_adjoining[3]) > 1, TRUE, FALSE)
+  movement_outcome <- ifelse(n_cells_move < ini$max_bac_cell, TRUE, FALSE)
   
   cell["x"] <- ifelse(movement_outcome[1], as_tibble(x_move), cell["x"])
   cell["y"] <- ifelse(movement_outcome[1], as_tibble(y_move), cell["y"])
@@ -133,8 +117,12 @@ simulate_movement <- function(cell, bac_population) {
 
 simulate_reproduction <- function(cell, bac_population, empty_slot) {
   # Check how many neighbours the bacterium currently has
-  group <- which(bac_population$resistance_status != "dead" & bac_population$x == cell$x & bac_population$y == cell$y)
-  group_nbours <- length(group)
+  if (ini$max_bac_cell > 5) {
+    group <- which(bac_population$resistance_status != "dead" & bac_population$x == cell$x & bac_population$y == cell$y)
+    group_nbours <- length(group)
+  } else {
+    group_nbours <- 0 # set neighbours to 0 when max bacteria per cell is low to allow reproduction
+  }
   
   # If there is space within the cell, the bacterium may reproduce in a density-dependent manner
   if (empty_slot < ini$max_bac & runif(1) > group_nbours/ini$max_bac_cell) {
@@ -247,47 +235,4 @@ simulate_spatial_AMR <- function(bac_population, t_max, ini, p) {
 spatial_simulation_result <- simulate_spatial_AMR(bac_population, t_max, ini, p)
 
 # Save as .csv
-write.csv(spatial_simulation_result, paste0("spat_AMR_r", run, "_", batch, ".csv"))
-
-################################################################################
-### Plot and animate bacteria in the 2D grid ----
-
-plot_bacteria <- function(spatial_simulation_result, p) {
-  simulation_result$x <- as.integer(spatial_simulation_result$x)
-  simulation_result$y <- as.integer(spatial_simulation_result$y)
-  ggplot() +
-    geom_point(data = spatial_simulation_result, aes(x = x, y = y, size = n, color = avg_MIC, group = timestep), position = position_nudge(x = -0.5, y = -0.5)) +
-    scale_x_continuous(limits = c(0, 20), labels = NULL, breaks = c(seq(-0.5, 20.5, 1))) +
-    scale_y_continuous(limits = c(0, 10), labels = NULL, breaks = c(seq(0.5, 9.5, 1))) +
-    scale_color_distiller(palette = "Reds", direction = 1) +
-    geom_vline(xintercept = 0, linetype="dashed", color = "darkgrey") +
-    geom_vline(xintercept = 5, linetype="dashed", color = "darkgrey") +
-    geom_vline(xintercept = 10, linetype="dashed", color = "darkgrey") +
-    geom_vline(xintercept = 15, linetype="dashed", color = "darkgrey") +
-    geom_vline(xintercept = 20, linetype="dashed", color = "darkgrey") +
-    scale_size(range = c(4,32), guide = 'none') +
-    labs(title = "Evolution of antimicrobial resistance over time",
-         caption = 'Time passed: {round(frame_time / 3, 0)} hrs',
-         x = NULL,
-         y = NULL,
-         color = "Average MIC") +
-    coord_cartesian(clip = "off") +
-    geom_text(x=2.5, y=-0.75, size = 7, aes(label=paste(p$antibiotic_list[1], "µg/mL"))) +
-    geom_text(x=7.5, y=-0.75, size = 7, aes(label=paste(p$antibiotic_list[2], "µg/mL"))) +
-    geom_text(x=12.5, y=-0.75, size = 7, aes(label=paste(p$antibiotic_list[3], "µg/mL"))) +
-    geom_text(x=17.5, y=-0.75, size = 7, aes(label=paste(p$antibiotic_list[4], "µg/mL"))) +
-    theme(plot.title = element_text(hjust = 0.5, size = 35),
-          plot.caption = element_text(vjust = -3, size = 20),
-          legend.title = element_text(size = 20),
-          axis.ticks.x=element_blank(),
-          axis.ticks.y=element_blank(),
-          panel.grid.major = element_blank(),
-          panel.grid.minor.x = element_line(linewidth = 0.1, linetype = "dashed"),
-          panel.grid.minor.y = element_line(linewidth = 0.1, linetype = "dashed"),
-          legend.key.size = unit(2, 'cm')) +
-    transition_time(timestep)
-}
-
-
-animation <- animate(plot_bacteria(spatial_simulation_result, p), height = 600, width = 1200)
-anim_save(paste0("spatial_AMR_evol_GIF_r", run, "_", batch, ".gif"), animation = animation)
+write.csv(spatial_simulation_result, file.path("simulation_output", paste0("spat_AMR_r", run, "_", batch, ".csv")))
